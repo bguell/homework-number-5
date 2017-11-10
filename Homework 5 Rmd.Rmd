@@ -1,0 +1,41 @@
+---
+title: 'Homework #5'
+author: "Brandon Güell & Dani Antos"
+date: "11/10/2017"
+output: html_document
+---
+
+Load in the data
+
+```{r}
+library(curl)
+f <- curl("https://raw.githubusercontent.com/fuzzyatelin/fuzzyatelin.github.io/master/AN597_Fall17/KamilarAndCooperData.csv")
+d <- read.csv(f, header = TRUE, sep = ",", stringsAsFactors = FALSE)
+head(d)
+```
+
+1) Linear Regression
+
+```{r}
+m0=lm(data= d, log(HomeRange_km2) ~ log(Body_mass_female_mean))
+summary(m0)
+```
+
+Report: β  coeffiecients (slope and intercept):
+
+* slope: 1.03643
+* intercept: -9.44123
+
+ 
+Extra stuff:
+```{r}
+plot(m0)
+library(car)
+qqPlot(m0$residuals)
+s <- shapiro.test(m0$residuals)
+s
+```
+
+
+2) 
+
