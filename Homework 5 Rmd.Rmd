@@ -2,11 +2,13 @@
 title: 'Homework #5'
 author: "Brandon Güell & Dani Antos"
 date: "11/10/2017"
-output: html_document
+output: 
+  html_document:
+    toc: true
+    toc_float: true
 ---
 
-Load in the data
-
+# Load in the data
 ```{r}
 library(curl)
 f <- curl("https://raw.githubusercontent.com/fuzzyatelin/fuzzyatelin.github.io/master/AN597_Fall17/KamilarAndCooperData.csv")
@@ -14,28 +16,150 @@ d <- read.csv(f, header = TRUE, sep = ",", stringsAsFactors = FALSE)
 head(d)
 ```
 
-1) Linear Regression
+# Linear Regression
 
 ```{r}
-m0=lm(data= d, log(HomeRange_km2) ~ log(Body_mass_female_mean))
-summary(m0)
+m=lm(data= d, log(HomeRange_km2) ~ log(Body_mass_female_mean))
+summary(m)
 ```
 
-Report: β  coeffiecients (slope and intercept):
-
-* slope: 1.03643
-* intercept: -9.44123
-
- 
-Extra stuff:
+## Report: β  coeffiecients (slope and intercept):
 ```{r}
-plot(m0)
-library(car)
-qqPlot(m0$residuals)
-s <- shapiro.test(m0$residuals)
-s
+m$coefficients
+```
+
+* **slope: 1.03643**
+* **intercept: -9.44123**
+
+# Use bootstrapping to sample from your data 1000 times with replacement:
+
+* lets use the boot package
+
+> make sure to install package "boot"
+
+```{r}
+library(boot)
+
+# multiple k
+
+# function to obtain regression weights 
+bs <- function(formula, data, indices) {
+  d <- data[indices,] # allows boot to select sample 
+  fit <- lm(formula, data=d)
+  return(coef(fit)) 
+} 
+# bootstrapping with 1000 replications & replication
+results <- boot(data= d, statistic=bs, R=1000, formula=log(HomeRange_km2) ~ log(Body_mass_female_mean))
+
+# view results
+results
+```
+
+> Just for fun:
+
+```{r}
+
+plot(results, index=1) # intercept 
+plot(results, index=2) # log(body mass femaile mean)
 ```
 
 
-2) 
+## Standard Error of Bootstrap:
+```{r}
+summary(results)
+```
 
+* **intercept: 0.604880**
+* **log(body mass femaile mean): 0.077853**
+
+## Confidence Intervals of Bootstrap:
+```{r}
+# get 95% confidence intervals for bootstrap
+boot.ci(results, type="bca", index=1) # intercept 
+boot.ci(results, type="bca", index=2) # log(body mass femaile mean) 
+```
+
+* **intercept: -10.707,  -8.371**
+* **log(body mass femaile mean): 0.896,  1.198**
+
+## Comparisons of Standard Errors:
+```{r}
+summary(m)
+```
+* **intercept: 0.67293**
+* **log(body mass femaile mean): 0.08488**
+
+> VS. the Standard Error of Bootstrap:
+
+```{r}
+summary(results)
+```
+
+* **intercept: 0.608714**
+* **log(body mass femaile mean): 0.078392**
+
+To us, these seem incredibly similar.
+
+
+## Comparisons of Confidence Intervals:
+
+```{r}
+confint(m, level = 0.95)
+```
+
+* **intercept: -10.7720889 -8.110374**
+* **log(body mass femaile mean): 0.8685707  1.204292**
+
+> VS. the Confidence Interval of Bootstrap:
+
+```{r}
+# get 95% confidence intervals for bootstrap
+boot.ci(results, type="bca", index=1) # intercept 
+boot.ci(results, type="bca", index=2) # log(body mass femaile mean) 
+```
+
+* **intercept: -10.689,  -8.269**
+* **log(body mass femaile mean): 0.884,  1.199**
+
+Again, to us, these seem not different.
+
+# Extra Credit
+
+> Write a FUNCTION that takes as its arguments a dataframe, “d”, a linear model, “m” (as a character string, e.g., “logHR~logBM”), a user-defined confidence interval level, “conf.level” (with default = 0.95), and a number of bootstrap replicates, “n” (with default = 1000). Your function should return a dataframe that includes: beta coefficient names; beta coefficients, standard errors, and upper and lower CI limits for the linear model based on your entire dataset; and mean beta coefficient estimates, SEs, and CI limits for those coefficients based on your bootstrap.
+
+```{r}
+b.guell.d.antos <- function(d, m = as.character(m), conf.level =0.95, n = 1000)
+{
+
+  
+BCoeffNames = names(m$coefficients)  
+B0 = m$coefficients["(Intercept)"]
+B1 = m$coefficients["log(Body_mass_female_mean)"]
+#or just one
+Coeff = coef(summary(m))[, 1]
+
+SE = coef(summary(m))[, "Std. Error"]
+CI= confint(m)
+
+#and the Bootstrap stuff below:
+BootCoeff = summary(results)[,5]
+BootSE = summary(results)[,4]
+
+BootB0CI = boot.ci(results, type="bca", index=1) # intercept 
+BootB1CI = boot.ci(results, type="bca", index=2) # log(body mass femaile mean) 
+
+
+  spitout <- list( 
+     BCoeffNames = BCoeffNames,
+		 Coeff = Coeff,
+     SE = SE,
+		 data.CI = CI,
+		 
+     BootCoeff = BootCoeff,
+		 BootSE = BootSE,
+		 BootB0CI = BootB0CI,
+		 BootB1CI = BootB1CI)
+  
+    return(spitout)
+  }
+```
