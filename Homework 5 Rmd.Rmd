@@ -66,7 +66,7 @@ plot(results, index=2) # log(body mass femaile mean)
 
 ## Standard Error of Bootstrap:
 ```{r}
-summary(results)
+results
 ```
 
 * **intercept: 0.604880**
@@ -92,7 +92,7 @@ summary(m)
 > VS. the Standard Error of Bootstrap:
 
 ```{r}
-summary(results)
+results
 ```
 
 * **intercept: 0.608714**
@@ -128,38 +128,93 @@ Again, to us, these seem not different.
 > Write a FUNCTION that takes as its arguments a dataframe, “d”, a linear model, “m” (as a character string, e.g., “logHR~logBM”), a user-defined confidence interval level, “conf.level” (with default = 0.95), and a number of bootstrap replicates, “n” (with default = 1000). Your function should return a dataframe that includes: beta coefficient names; beta coefficients, standard errors, and upper and lower CI limits for the linear model based on your entire dataset; and mean beta coefficient estimates, SEs, and CI limits for those coefficients based on your bootstrap.
 
 ```{r}
-b.guell.d.antos <- function(d, m = as.character(m), conf.level =0.95, n = 1000)
+b.guell.d.antos <- function(d, m, conf.level = 0.95, n = 1000)
 {
 
+# model
+m = lm(data=d, m)
   
-BCoeffNames = names(m$coefficients)  
-B0 = m$coefficients["(Intercept)"]
-B1 = m$coefficients["log(Body_mass_female_mean)"]
-#or just one
-Coeff = coef(summary(m))[, 1]
+# names
+BCoeffNames = names(m$coefficients)
 
-SE = coef(summary(m))[, "Std. Error"]
-CI= confint(m)
+# beta coefficients
+data_coeff = coef(summary(m))[, 1]
 
-#and the Bootstrap stuff below:
-BootCoeff = summary(results)[,5]
-BootSE = summary(results)[,4]
+# data SE and CI
+data_SE = coef(summary(m))[, "Std. Error"]
+data_CI= confint(m)
+data_CI
 
+# Bootstrap stuff:
+
+ library(boot)
+  bs <- function(formula, data, indices) {
+  d <- data[indices,] # allows boot to select sample 
+  fit <- lm(formula, data=d)
+  return(coef(fit)) 
+  } 
+  
+# bootstrapping with 1000 replications & replication
+results <- boot(data= d, statistic= bs, R=1000, formula= m)
+
+# Bootsrap coefficients
+mean_B0= mean(results$t[,1])
+mean_B0
+mean_B1= mean(results$t[,2])
+mean_B1
+
+BootCoeff = c(mean_B0, mean_B1)
+BootCoeff
+
+
+# Bootsrap SE and CI
+SE_func <- function(x) {
+      sd(x)/sqrt(length(x))
+}
+
+BootSE_B0 = SE_func(results$t[,1])
+BootSE_B0
+
+BootSE_B1 = SE_func(results$t[,2])
+BootSE_B1
+
+BootSE = c(BootSE_B0, BootSE_B1) #must make them into a vector so that it splits in the dataframe nicely..
+
+# confidence intervals
 BootB0CI = boot.ci(results, type="bca", index=1) # intercept 
+BootB0CI = BootB0CI$bca[,4:5]
+BootB0CI
+
 BootB1CI = boot.ci(results, type="bca", index=2) # log(body mass femaile mean) 
+BootB1CI = BootB1CI$bca[,4:5]
+BootB1CI
 
+# Holy shit... difficult but got it in the right format! yay!
+BootCI2.5 = c(BootB0CI[1], BootB1CI[1])
+BootCI97.5 = c( BootB0CI[2], BootB1CI[2])
+BootCI = cbind(BootCI2.5, BootCI97.5)
+BootCI
 
-  spitout <- list( 
+  spitout <- data.frame( 
      BCoeffNames = BCoeffNames,
-		 Coeff = Coeff,
-     SE = SE,
-		 data.CI = CI,
+		 data_coeff = data_coeff,
+     data_SE = data_SE,
+		 data_CI = data_CI,
 		 
      BootCoeff = BootCoeff,
 		 BootSE = BootSE,
-		 BootB0CI = BootB0CI,
-		 BootB1CI = BootB1CI)
+		 BootCI) # dont need to name it here because its a dataframe already)
   
+  rownames(spitout) <- NULL # get rid of excess row names...
+
     return(spitout)
   }
+```
+
+# Extra Extra Credit
+
+> Graph each beta value from the linear model and its corresponding mean value, lower CI and upper CI from a bootstrap as a function of number of bootstraps from 10 to 200 by 10s. HINT: the beta value from the linear model will be the same for all bootstraps and the mean beta value may not differ that much!
+
+```{r}
+
 ```
